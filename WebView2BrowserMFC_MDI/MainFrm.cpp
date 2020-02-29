@@ -25,8 +25,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_VIEW_CUSTOMIZE, &CMainFrame::OnViewCustomize)
 	ON_REGISTERED_MESSAGE(AFX_WM_CREATETOOLBAR, &CMainFrame::OnToolbarCreateNew)
 	ON_COMMAND_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_WINDOWS_7, &CMainFrame::OnApplicationLook)
-	ON_UPDATE_COMMAND_UI_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_WINDOWS_7, &CMainFrame::OnUpdateApplicationLook)
-	ON_COMMAND(ID_FILE_CLOSE, &CMainFrame::OnFileClose)
+	ON_UPDATE_COMMAND_UI_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_WINDOWS_7, &CMainFrame::OnUpdateApplicationLook)	
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -309,10 +308,3 @@ BOOL CMainFrame::LoadFrame(UINT nIDResource, DWORD dwDefaultStyle, CWnd* pParent
 	return TRUE;
 }
 
-
-
-void CMainFrame::OnFileClose()
-{
-	// TODO: Add your command handler code here
-	MessageBox(L"", L"", 0);
-}
