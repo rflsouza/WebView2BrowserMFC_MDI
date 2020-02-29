@@ -8,9 +8,11 @@ If you add a new document, it will keep the views and will delete and create new
 On the console you can observe the operation.
 
 Opening the program it will show view 1 with browser 1:
+
 ![WebView2Browser](/screenshots/Browser_view1.png)
 
 You can change the view:
+
 ![WebView2Browser](/screenshots/Browser_SwitchView.png)
 
 After the exchange, it will show view 2 with browser 2:
