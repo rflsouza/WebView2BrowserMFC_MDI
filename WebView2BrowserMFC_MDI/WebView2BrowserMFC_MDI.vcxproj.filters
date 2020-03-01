@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\htmls">
+      <UniqueIdentifier>{116243a2-d54e-4745-9ca6-a3b97bc8c3a7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="WebView2BrowserMFC_MDI.h">
@@ -91,5 +94,8 @@
     </None>
     <None Include="packages.config" />
     <None Include="$(MSBuildThisFileDirectory)$(EffectivePlatform)\WebView2Loader.dll" />
+    <None Include="htmls\WebMessage.html">
+      <Filter>Source Files\htmls</Filter>
+    </None>
   </ItemGroup>
 </Project>

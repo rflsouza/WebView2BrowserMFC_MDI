@@ -66,7 +66,15 @@ void CWebView2BrowserView::OnInitialUpdate()
 	std::wstring view = L"View " + std::to_wstring(m_Id);
 	m_Label_View.SetWindowText(view.c_str());
 	
-	browser = std::make_unique<BrowserWindow>(GetSafeHwnd());
+	browser = std::make_unique<BrowserWindow>(GetSafeHwnd(), BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\WebMessage.html")));
+				
+	//std::async(std::launch::async,
+	//	[this] {
+	//	std::this_thread::sleep_for(std::chrono::seconds(10));
+	//	std::wstring url = BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\WebMessage.html"));
+	//	browser->Navigate(url);
+	//});	
+
 }
 
 void CWebView2BrowserView::OnRButtonUp(UINT /* nFlags */, CPoint point)

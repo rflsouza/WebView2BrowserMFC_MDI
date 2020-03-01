@@ -30,6 +30,8 @@
 
 #include <memory>
 #include <string>
+#include <thread>
+#include <future>
 #include <atomic>
 extern std::atomic<long> g_views;
 extern std::atomic<long> g_browsers;
