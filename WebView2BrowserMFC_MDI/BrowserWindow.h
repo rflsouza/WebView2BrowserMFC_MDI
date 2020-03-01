@@ -15,6 +15,17 @@ class BrowserWindow
 
 	bool InitWebView();
 
+protected:
+	EventRegistrationToken m_EventRegistrationToken = {};  // Token for the UI message handler in controls WebView
+	Microsoft::WRL::ComPtr<ICoreWebView2WebMessageReceivedEventHandler> m_MessageBroker;
+	Microsoft::WRL::ComPtr<ICoreWebView2NavigationStartingEventHandler> m_NavigationStartingBroker;		
+	
+	//https://chromedevtools.github.io/devtools-protocol/tot/Log#type-LogEntry
+	Microsoft::WRL::ComPtr<ICoreWebView2DevToolsProtocolEventReceivedEventHandler> m_devToolsSecurityBroker;
+	Microsoft::WRL::ComPtr<ICoreWebView2DevToolsProtocolEventReceivedEventHandler> m_devToolsLogBroker;
+	
+	void SetBrokers();
+
 public:
 	static wil::com_ptr<ICoreWebView2Environment> m_webViewEnvironment;	
 	static BOOL InitInstance();
@@ -22,5 +33,11 @@ public:
 	BrowserWindow(HWND hWnd);
 	~BrowserWindow();
 	void Resize();
+	HRESULT Navigate(std::wstring url);
+	HRESULT PostJson(web::json::value jsonObj);
+
+	static void CheckFailure(HRESULT hr, LPCWSTR errorMessage);
+	static std::wstring GetAppDataDirectory();
+	std::wstring GetFullPathFor(LPCWSTR relativePath);
 };
 
