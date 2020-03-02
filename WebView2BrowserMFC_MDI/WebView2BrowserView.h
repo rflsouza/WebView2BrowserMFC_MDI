@@ -52,6 +52,7 @@ protected:
 public:
 	CStatic m_Label_View;
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
 };
 
 #ifndef _DEBUG  // debug version in WebView2BrowserView.cpp

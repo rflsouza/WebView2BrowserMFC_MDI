@@ -102,7 +102,7 @@ BOOL CWebView2BrowserApp::InitInstance()
 	SetRegistryKey(_T("Local AppWizard-Generated Applications"));
 	LoadStdProfileSettings(0);  // Load standard INI file options (including MRU)
 
-	BrowserWindow::InitInstance();
+	BrowserWindow::InitInstance(theApp.m_hInstance);
 
 	InitContextMenuManager();
 
@@ -138,6 +138,10 @@ BOOL CWebView2BrowserApp::InitInstance()
 	if (!ProcessShellCommand(cmdInfo))
 		return FALSE;
 
+	//  resize screen.	
+	int screen_x_size = GetSystemMetrics(SM_CXSCREEN), screen_y_size = GetSystemMetrics(SM_CYSCREEN);
+	int x_5percent = screen_x_size * 0.1, y_5percent = screen_y_size * 0.1;
+	m_pMainWnd->SetWindowPos(m_pActiveWnd, x_5percent, y_5percent, screen_x_size - x_5percent * 2, screen_y_size - y_5percent * 2, SWP_NOZORDER);
 
 	{
 		//https://docs.microsoft.com/en-us/cpp/mfc/adding-multiple-views-to-a-single-document?redirectedfrom=MSDN&view=vs-2019#vcconswitchingfunctiona4
@@ -164,7 +168,8 @@ BOOL CWebView2BrowserApp::InitInstance()
 		// in the standard document/view case but the technique cannot
 		// be extended for the CSplitterWnd case.
 		UINT viewID = AFX_IDW_PANE_FIRST + 1;
-		CRect rect(0, 0, 0, 0); // Gets resized later.
+		CRect rect(0, 0, 0, 0); // Gets resized later.		
+		GetClientRect(((CFrameWnd *)m_pMainWnd)->m_hWnd, &rect);
 
 		// Create the new view. In this example, the view persists for
 		// the life of the application. The application automatically
@@ -181,8 +186,6 @@ BOOL CWebView2BrowserApp::InitInstance()
 	m_pMainWnd->ShowWindow(SW_SHOW);
 	
 	//  resize screen.	
-	int screen_x_size = GetSystemMetrics(SM_CXSCREEN), screen_y_size = GetSystemMetrics(SM_CYSCREEN);
-	int x_5percent = screen_x_size * 0.1, y_5percent = screen_y_size * 0.1;
 	m_pMainWnd->SetWindowPos(m_pActiveWnd, x_5percent, y_5percent, screen_x_size - x_5percent * 2, screen_y_size - y_5percent * 2, SWP_NOZORDER);
 
 	m_pMainWnd->UpdateWindow();

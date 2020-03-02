@@ -33,15 +33,18 @@
 #include <thread>
 #include <future>
 #include <atomic>
+#include <algorithm>
+#define MAX_LOADSTRING 256
 extern std::atomic<long> g_views;
 extern std::atomic<long> g_browsers;
 
 #include <wrl.h>
+#include <wrl/event.h>
 #include <wil/result.h>
 #include <wil/com.h>
 #include <cpprest/json.h>
 #include "WebView2.h"
-
+#include "Resource.h"
 
 #ifdef _UNICODE
 #if defined _M_IX86

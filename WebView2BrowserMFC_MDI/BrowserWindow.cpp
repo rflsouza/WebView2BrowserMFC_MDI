@@ -4,6 +4,7 @@
 
 using namespace Microsoft::WRL;
 
+WCHAR BrowserWindow::s_windowClass[] = { 0 };
 wil::com_ptr<ICoreWebView2Environment> BrowserWindow::m_webViewEnvironment = nullptr;
 
 
@@ -109,6 +110,18 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 	});
 	RETURN_IF_FAILED(m_webView->add_NavigationStarting(m_NavigationStartingBroker.Get(), &m_NavigationStartingToken));
 
+
+	m_NavigationCompletedBroker = Callback<ICoreWebView2NavigationCompletedEventHandler>(
+		[this](ICoreWebView2* webview, ICoreWebView2NavigationCompletedEventArgs * args) -> HRESULT
+	{
+		BOOL isSuccess = FALSE;
+		RETURN_IF_FAILED(args->get_IsSuccess(&isSuccess));
+		TRACE("\r\n[%ld] %p id:%ld NavigationCompleted %d\r\n", GetCurrentThreadId(), this, m_Id, isSuccess);
+
+		return S_OK;
+	});
+	RETURN_IF_FAILED(m_webView->add_NavigationCompleted(m_NavigationCompletedBroker.Get(), &m_NavigationCompletedToken));
+
 	m_ProcessFailedBroker = Callback<ICoreWebView2ProcessFailedEventHandler>(
 		[this](ICoreWebView2* sender,
 			ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT
@@ -176,8 +189,10 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 	return S_OK;
 }
 
-BOOL BrowserWindow::InitInstance()
+BOOL BrowserWindow::InitInstance(HINSTANCE hInstance)
 {
+	RegisterClass(hInstance);
+
 	HRESULT hr = CreateCoreWebView2EnvironmentWithDetails(nullptr, nullptr,
 		L"", Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
 			[](HRESULT result, ICoreWebView2Environment* env) -> HRESULT
@@ -210,18 +225,40 @@ BOOL BrowserWindow::InitInstance()
 	return TRUE;
 }
 
-BrowserWindow::BrowserWindow(HWND hWnd, std::wstring initialUri, std::function<void()> webviewCreatedCallback)
-	: m_hWnd(hWnd), m_initialUri(initialUri), m_onWebViewFirstInitialized(webviewCreatedCallback)
+BrowserWindow::BrowserWindow(HINSTANCE hInstance, HWND parentHWnd, std::wstring initialUri, std::function<void()> webviewCreatedCallback)
+	: m_parentHWnd(parentHWnd), m_initialUri(initialUri), m_onWebViewFirstInitialized(webviewCreatedCallback)
 {
 	m_Id = ++g_browsers;
 	TRACE("\r\n\t+++ [%ld] %s - %p id:%ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id);
 	
-	InitWebView();
+	/*m_hWnd = CreateWindowExW(
+		WS_EX_CONTROLPARENT, s_windowClass, L"Title Browser", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0,
+		CW_USEDEFAULT, 0, parentHWnd, nullptr, hInstance, nullptr);*/
+	m_hWnd = CreateWindowW(s_windowClass, L"Title Browser", WS_CHILD, 0, 0, 0, 0, parentHWnd, nullptr, m_hInst, nullptr);
+
+	if (!m_hWnd)
+	{
+		DWORD erro = GetLastError();
+		TRACE("\r\n\t!!!!! [%ld] %s - %p id:%ld GetLastError:ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, erro);
+		return ;
+	}
+	
+	TRACE("\r\n\t!!!!! [%ld] %s - %p id:%ld hWnd:%p parentHWnd:%p\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, m_hWnd, parentHWnd);
+
+	ShowWindow(m_hWnd, SW_SHOW);
+	UpdateWindow(m_hWnd);
+
+	SetWindowLongPtr(m_hWnd, GWLP_USERDATA, (LONG_PTR)this);
+
+	//InitWebView();
+	RunAsync([this] {
+		InitWebView();
+	});	
 }
 
 BrowserWindow::~BrowserWindow()
 {
-	TRACE("\r\n\t--- [%ld] %s - %p id:%ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id);
+	TRACE("\r\n\t--- [%ld] %s - %p id:%ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id);	
 	if (m_host)
 	{
 		m_host->Close();
@@ -230,14 +267,31 @@ BrowserWindow::~BrowserWindow()
 	}
 }
 
-void BrowserWindow::Resize()
+void BrowserWindow::RunAsync(std::function<void()> callback)
 {
-	if (m_hWnd != nullptr && m_host != nullptr)
-	{
-		RECT bounds;
-		GetClientRect(m_hWnd, &bounds);
+	auto* task = new std::function<void()>(callback);
+	PostMessage(m_hWnd, WM_APP, reinterpret_cast<WPARAM>(task), 0);
+}
+
+void BrowserWindow::Resize(RECT bounds)
+{
+	//if (m_hWnd != nullptr && m_host != nullptr)
+	//{
+	//	RECT bounds;
+	//	GetClientRect(m_hWnd, &bounds);
+	//	m_host->put_Bounds(bounds);
+	//	m_host->put_IsVisible(TRUE);
+	//}
+	if (m_parentHWnd != nullptr && m_host != nullptr)
+	{		
+		if (bounds.bottom == 0 && bounds.top == 0, bounds.left == 0, bounds.right == 0) {
+			GetClientRect(m_parentHWnd, &bounds);
+		}		
 		m_host->put_Bounds(bounds);
-		m_host->put_IsVisible(TRUE);
+		m_host->put_IsVisible(TRUE);		
+
+		ShowWindow(m_hWnd, SW_SHOWMAXIMIZED);
+		UpdateWindow(m_hWnd);	
 	}
 }
 
@@ -246,7 +300,7 @@ HRESULT BrowserWindow::Navigate(std::wstring url)
 	if (m_webView == nullptr) 
 		return ERROR_INVALID_HANDLE;
 
-	return m_webView->Navigate(url.c_str());;
+	return m_webView->Navigate(url.c_str());	
 }
 
 HRESULT BrowserWindow::NavigateToString(std::wstring content)
@@ -268,35 +322,51 @@ HRESULT BrowserWindow::PostJson(web::json::value jsonObj)
 	return m_webView->PostWebMessageAsJson(stream.str().c_str());
 }
 
-HRESULT BrowserWindow::AddInitializeScript(std::wstring script)
+HRESULT BrowserWindow::AddInitializeScript(std::wstring script, Microsoft::WRL::ComPtr<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler> handler)
 {
 	if (m_webView == nullptr)
 		return ERROR_INVALID_HANDLE;
 
-	return m_webView->AddScriptToExecuteOnDocumentCreated(script.c_str(),
-		Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
+	if (script.empty())
+		return ERROR_INVALID_PARAMETER;
+
+	if (handler == nullptr) {
+		handler = Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
 			[this](HRESULT error, PCWSTR id) -> HRESULT
-	{		
-		TRACE("\r\n\t+++ [%ld] %s - %p id:%ld AddScriptToExecuteOnDocumentCreated Id %s \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, id);		
-		return S_OK;
-	}).Get());	
+		{
+			if (error != S_OK) {
+				TRACE("\r\n\t+++ [%ld] %s - %p id:%ld AddScriptToExecuteOnDocumentCreated failed Result %ld \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, error);
+			}
+			TRACE("\r\n\t+++ [%ld] %s - %p id:%ld AddScriptToExecuteOnDocumentCreated Id %s \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, id);
+			return error;
+		});
+	}
+
+	return m_webView->AddScriptToExecuteOnDocumentCreated(script.c_str(),handler.Get());	
 }
 
-HRESULT BrowserWindow::InjectScript(std::wstring script)
+HRESULT BrowserWindow::InjectScript(std::wstring script, Microsoft::WRL::ComPtr <ICoreWebView2ExecuteScriptCompletedHandler> handler)
 {
 	if (m_webView == nullptr)
 		return ERROR_INVALID_HANDLE;
 
-	return m_webView->ExecuteScript(script.c_str(),
-		Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+	if (script.empty())
+		return ERROR_INVALID_PARAMETER;
+
+	if (handler == nullptr) {
+		handler = Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
 			[this](HRESULT error, PCWSTR result) -> HRESULT
-	{
-		if (error != S_OK) {			
-			TRACE("\r\n\t+++ [%ld] %s - %p id:%ld ExecuteScript failed Result %ld \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, error);
-		}		
-		TRACE("\r\n\t+++ [%ld] %s - %p id:%ld ExecuteScript Result %S \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, result);
-		return S_OK;
-	}).Get());	
+		{
+			if (error != S_OK) {
+				TRACE("\r\n\t+++ [%ld] %s - %p id:%ld ExecuteScript failed Result %ld \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, error);
+			}
+			TRACE("\r\n\t+++ [%ld] %s - %p id:%ld ExecuteScript Result %S \r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id, result);
+			return error;
+		});
+	}
+
+	return m_webView->ExecuteScript(script.c_str(), handler.Get());
+	
 }
 
 bool BrowserWindow::InitWebView()
@@ -333,19 +403,19 @@ bool BrowserWindow::InitWebView()
 		// Register events	
 		RETURN_IF_FAILED(SetEventsAndBrokers());
 
-		//// Schedule an async task to navigate to Bing		
-		//std::wstring url = _T("https://www.bing.com/search?q=teste+") + std::to_wstring(m_Id) + _T("+") + std::to_wstring((long)m_hWnd);				
-		//Navigate(url.c_str());
+		// Schedule an async task to navigate to Bing		
+		std::wstring url = _T("https://www.bing.com/search?q=teste+") + std::to_wstring(m_Id) + _T("+") + std::to_wstring((long)m_hWnd);				
+		Navigate(url.c_str());
+
+		//if (!m_initialUri.empty())
+		//{
+		//	Navigate(m_initialUri.c_str());
+		//}
 
 		if (m_onWebViewFirstInitialized)
 		{
 			m_onWebViewFirstInitialized();
 			m_onWebViewFirstInitialized = nullptr;
-		}
-
-		if (!m_initialUri.empty())
-		{
-			Navigate(m_initialUri.c_str());
 		}
 
 		return S_OK;
@@ -358,6 +428,138 @@ bool BrowserWindow::InitWebView()
 	}
 
 	return true;
+}
+
+//
+//  FUNCTION: RegisterClass()
+//
+//  PURPOSE: Registers the window class.
+//
+ATOM BrowserWindow::RegisterClass(_In_ HINSTANCE hInstance)
+{	
+	// Initialize window class string
+	LoadStringW(hInstance, AFX_IDS_APP_TITLE, s_windowClass, MAX_LOADSTRING);
+	WNDCLASSEXW wcex;
+
+	wcex.cbSize = sizeof(WNDCLASSEX);
+
+	wcex.style = CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc = WndProcStatic;
+	wcex.cbClsExtra = 0;
+	wcex.cbWndExtra = 0;
+	wcex.hInstance = hInstance;
+	wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(AFX_IDS_APP_TITLE));
+	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszMenuName = MAKEINTRESOURCEW(AFX_IDS_APP_TITLE);
+	wcex.lpszClassName = s_windowClass;
+	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDR_MAINFRAME));
+
+	return RegisterClassExW(&wcex);
+}
+
+//
+//  FUNCTION: WndProcStatic(HWND, UINT, WPARAM, LPARAM)
+//
+//  PURPOSE: Redirect messages to approriate instance or call default proc
+//
+//  WM_COMMAND  - process the application menu
+//  WM_PAINT    - Paint the main window
+//  WM_DESTROY  - post a quit message and return
+//
+//
+LRESULT CALLBACK BrowserWindow::WndProcStatic(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	// Get the ptr to the BrowserWindow instance who created this hWnd.
+	// The pointer was set when the hWnd was created during InitInstance.
+	BrowserWindow* browser_window = reinterpret_cast<BrowserWindow*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+	if (browser_window != nullptr)
+	{
+		return browser_window->WndProc(hWnd, message, wParam, lParam);  // Forward message to instance-aware WndProc
+	}
+	else
+	{
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+}
+
+
+//
+//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
+//
+//  PURPOSE: Processes messages for each browser window instance.
+//
+//  WM_COMMAND  - process the application menu
+//  WM_PAINT    - Paint the main window
+//  WM_DESTROY  - post a quit message and return
+//
+//
+LRESULT CALLBACK BrowserWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+
+	case WM_SIZE:
+	{
+		Resize();		
+	}
+	break;
+	case WM_CLOSE:
+	{
+
+	}
+	break;
+	case WM_NCDESTROY:
+	{
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, NULL);
+		//delete this;
+		PostQuitMessage(0);
+	}
+	case WM_PAINT:
+	{
+		PAINTSTRUCT ps;
+		HDC hdc = BeginPaint(hWnd, &ps);
+		EndPaint(hWnd, &ps);
+	}
+	break;
+	case WM_APP:
+	{
+		auto* task = reinterpret_cast<std::function<void()>*>(wParam);
+		(*task)();
+		delete task;
+		return true;
+	}
+	break;
+	//case WM_PARENTNOTIFY:
+	//{
+	//	int wmId = LOWORD(wParam);
+	//	HWND hwnd;
+	//	RECT cRect;
+	//	RECT Rect = { 0 };		
+	//	
+	//	switch (wmId)
+	//	{
+	//	case WM_CREATE:
+	//		hwnd = (HWND)lParam;
+	//		GetWindowRect(hwnd, &cRect);
+	//		GetWindowRect(hWnd, &Rect);
+	//		Rect.right = max(Rect.right, (cRect.right + 7));//Windows 10 has thin invisible borders on left, right, and bottom
+	//		Rect.bottom =max(Rect.bottom, cRect.bottom + 7);
+	//		SetWindowPos(hWnd, HWND_TOP, 0, 0, Rect.right - Rect.left, Rect.bottom - Rect.top, SWP_NOZORDER | SWP_NOMOVE | SWP_SHOWWINDOW);
+	//		break;
+	//	case WM_DESTROY:
+	//		break;
+	//	}
+	//	return 0;
+	//}
+	//break;
+	default:
+	{
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	break;
+	}
+	return 0;
 }
 
 void BrowserWindow::CheckFailure(HRESULT hr, LPCWSTR errorMessage)

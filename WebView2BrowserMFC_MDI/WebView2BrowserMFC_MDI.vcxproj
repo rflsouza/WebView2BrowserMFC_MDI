@@ -233,6 +233,11 @@
     <Image Include="res\WebView2BrowserMFC_MDIDoc.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="htmls\commands.js" />
+    <None Include="htmls\default.js" />
+    <None Include="htmls\default.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="htmls\WebMessage.html" />
     <None Include="packages.config" />
     <None Include="res\WebView2BrowserMFCMDI.rc2" />

@@ -97,5 +97,14 @@
     <None Include="htmls\WebMessage.html">
       <Filter>Source Files\htmls</Filter>
     </None>
+    <None Include="htmls\default.js">
+      <Filter>Source Files\htmls</Filter>
+    </None>
+    <None Include="htmls\commands.js">
+      <Filter>Source Files\htmls</Filter>
+    </None>
+    <None Include="htmls\default.htm">
+      <Filter>Source Files\htmls</Filter>
+    </None>
   </ItemGroup>
 </Project>
