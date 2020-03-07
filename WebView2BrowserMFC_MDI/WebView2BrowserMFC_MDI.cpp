@@ -14,6 +14,7 @@
 #include "WebView2BrowserView.h"
 
 #include "BrowserWindow.h"
+#include "BrowserWindowEdge.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -103,6 +104,7 @@ BOOL CWebView2BrowserApp::InitInstance()
 	LoadStdProfileSettings(0);  // Load standard INI file options (including MRU)
 
 	BrowserWindow::InitInstance(theApp.m_hInstance);
+	BrowserWindowEdge::InitInstance(theApp.m_hInstance);
 
 	InitContextMenuManager();
 

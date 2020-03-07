@@ -7,6 +7,7 @@ using namespace Microsoft::WRL;
 WCHAR BrowserWindow::s_windowClass[] = { 0 };
 wil::com_ptr<ICoreWebView2Environment> BrowserWindow::m_webViewEnvironment = nullptr;
 
+//#pragma comment(lib, "runtimeobject.lib") //RoInitializeWrapper
 
 HRESULT BrowserWindow::SetEventsAndBrokers()
 {
@@ -22,13 +23,13 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 
 		if (!jsonObj.has_field(L"message"))
 		{
-			OutputDebugString(L"No message code provided\n");
+			OutputDebugStringW(L"No message code provided\n");
 			return S_OK;
 		}
 
 		if (!jsonObj.has_field(L"args"))
 		{
-			OutputDebugString(L"The message has no args field\n");
+			OutputDebugStringW(L"The message has no args field\n");
 			return S_OK;
 		}
 
@@ -58,7 +59,7 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 				}
 				else
 				{
-					OutputDebugString(L"Requested unknown browser page\n");
+					OutputDebugStringW(L"Requested unknown browser page\n");
 				}
 			}
 			else if (!SUCCEEDED(Navigate(uri.c_str())))
@@ -78,7 +79,7 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 		break;
 		default:
 		{
-			OutputDebugString(L"Unexpected message\n");
+			OutputDebugStringW(L"Unexpected message\n");
 		}
 		break;
 		}
@@ -118,6 +119,14 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 		RETURN_IF_FAILED(args->get_IsSuccess(&isSuccess));
 		TRACE("\r\n[%ld] %p id:%ld NavigationCompleted %d\r\n", GetCurrentThreadId(), this, m_Id, isSuccess);
 
+		SetEvent(NavigationCompletedEvent.Get());
+
+		if (m_onWebViewFirstInitialized)
+		{
+			m_onWebViewFirstInitialized();
+			m_onWebViewFirstInitialized = nullptr;
+		}
+
 		return S_OK;
 	});
 	RETURN_IF_FAILED(m_webView->add_NavigationCompleted(m_NavigationCompletedBroker.Get(), &m_NavigationCompletedToken));
@@ -130,7 +139,7 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 		RETURN_IF_FAILED(args->get_ProcessFailedKind(&failureType));
 		if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED)
 		{
-			int button = MessageBox(
+			int button = ::MessageBoxW(
 				m_hWnd,
 				L"Browser process exited unexpectedly.  Recreate webview?",
 				L"Browser process exited",
@@ -142,7 +151,7 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 		}
 		else if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
 		{
-			int button = MessageBox(
+			int button = ::MessageBoxW(
 				m_hWnd,
 				L"Browser render process has stopped responding.  Recreate webview?",
 				L"Web page unresponsive", MB_YESNO);
@@ -191,17 +200,30 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 
 BOOL BrowserWindow::InitInstance(HINSTANCE hInstance)
 {
-	RegisterClass(hInstance);
+	if (!SUCCEEDED(RegisterClass(hInstance)) ){
+		return false;
+	}
 
-	HRESULT hr = CreateCoreWebView2EnvironmentWithDetails(nullptr, nullptr,
-		L"", Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
+	// Get directory for user data. This will be kept separated from the
+   // directory for the browser UI data.
+	std::wstring userDataDirectory = GetAppDataDirectory();
+	userDataDirectory.append(L"\\User Data");
+
+	std::wstring additionalBrowserArguments; 
+	//additionalBrowserArguments = L"--auto-open-devtools-for-tabs";
+
+	HRESULT hr = CreateCoreWebView2EnvironmentWithDetails(
+		nullptr, 
+		userDataDirectory.c_str(),
+		additionalBrowserArguments.c_str(), 
+		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
 			[](HRESULT result, ICoreWebView2Environment* env) -> HRESULT
 	{
 		if (!SUCCEEDED(result))
 		{
 			if (result == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
 			{
-				MessageBox(
+				::MessageBoxW(
 					nullptr,
 					L"Couldn't find Edge installation. "
 					"Do you have a version installed that's compatible with this "
@@ -218,7 +240,7 @@ BOOL BrowserWindow::InitInstance(HINSTANCE hInstance)
 
 	if (!SUCCEEDED(hr))
 	{
-		OutputDebugString(L"WebView2Environment creation failed\n");
+		OutputDebugStringW(L"WebView2Environment creation failed\n");
 		return FALSE;
 	}
 
@@ -226,7 +248,9 @@ BOOL BrowserWindow::InitInstance(HINSTANCE hInstance)
 }
 
 BrowserWindow::BrowserWindow(HINSTANCE hInstance, HWND parentHWnd, std::wstring initialUri, std::function<void()> webviewCreatedCallback)
-	: m_parentHWnd(parentHWnd), m_initialUri(initialUri), m_onWebViewFirstInitialized(webviewCreatedCallback)
+	: m_parentHWnd(parentHWnd), m_initialUri(initialUri), m_onWebViewFirstInitialized(webviewCreatedCallback),
+	/*initialize(RO_INIT_MULTITHREADED),*/
+	NavigationCompletedEvent(CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, WRITE_OWNER | EVENT_ALL_ACCESS))
 {
 	m_Id = ++g_browsers;
 	TRACE("\r\n\t+++ [%ld] %s - %p id:%ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id);
@@ -234,7 +258,7 @@ BrowserWindow::BrowserWindow(HINSTANCE hInstance, HWND parentHWnd, std::wstring 
 	/*m_hWnd = CreateWindowExW(
 		WS_EX_CONTROLPARENT, s_windowClass, L"Title Browser", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0,
 		CW_USEDEFAULT, 0, parentHWnd, nullptr, hInstance, nullptr);*/
-	m_hWnd = CreateWindowW(s_windowClass, L"Title Browser", WS_CHILD, 0, 0, 0, 0, parentHWnd, nullptr, m_hInst, nullptr);
+	m_hWnd = CreateWindowW(s_windowClass, L"Title Browser", WS_CHILD, 0, 0, 10, 10, parentHWnd, nullptr, hInstance, nullptr);
 
 	if (!m_hWnd)
 	{
@@ -265,6 +289,11 @@ BrowserWindow::~BrowserWindow()
 		m_host = nullptr;
 		m_webView = nullptr;
 	}
+
+	if (m_hWnd) {
+		DestroyWindow(m_hWnd);
+		m_hWnd = nullptr;
+	}
 }
 
 void BrowserWindow::RunAsync(std::function<void()> callback)
@@ -285,7 +314,11 @@ void BrowserWindow::Resize(RECT bounds)
 	if (m_parentHWnd != nullptr && m_host != nullptr)
 	{		
 		if (bounds.bottom == 0 && bounds.top == 0, bounds.left == 0, bounds.right == 0) {
-			GetClientRect(m_parentHWnd, &bounds);
+			bounds.bottom += 10;
+			bounds.top += 10;
+			bounds.left += 10;
+			bounds.right += 10;
+			::GetClientRect(m_parentHWnd, &bounds);
 		}		
 		m_host->put_Bounds(bounds);
 		m_host->put_IsVisible(TRUE);		
@@ -299,8 +332,14 @@ HRESULT BrowserWindow::Navigate(std::wstring url)
 {
 	if (m_webView == nullptr) 
 		return ERROR_INVALID_HANDLE;
+	
+	ResetEvent(NavigationCompletedEvent.Get());
+	SetEvent(NavigationCompletedEvent.Get());	
 
-	return m_webView->Navigate(url.c_str());	
+	auto result = m_webView->Navigate(url.c_str());
+
+	WaitForSingleObjectEx(NavigationCompletedEvent.Get(), INFINITE, FALSE);
+	return result;
 }
 
 HRESULT BrowserWindow::NavigateToString(std::wstring content)
@@ -380,7 +419,7 @@ bool BrowserWindow::InitWebView()
 
 		if (!SUCCEEDED(result))
 		{
-			OutputDebugString(L"WebView creation failed\n");
+			OutputDebugStringW(L"WebView creation failed\n");
 			return result;
 		}
 
@@ -404,26 +443,27 @@ bool BrowserWindow::InitWebView()
 		RETURN_IF_FAILED(SetEventsAndBrokers());
 
 		// Schedule an async task to navigate to Bing		
-		std::wstring url = _T("https://www.bing.com/search?q=teste+") + std::to_wstring(m_Id) + _T("+") + std::to_wstring((long)m_hWnd);				
-		Navigate(url.c_str());
+		/*std::wstring url = _T("https://www.bing.com/search?q=teste+") + std::to_wstring(m_Id) + _T("+") + std::to_wstring((long)m_hWnd);				
+		Navigate(url.c_str());*/
 
-		//if (!m_initialUri.empty())
-		//{
-		//	Navigate(m_initialUri.c_str());
-		//}
-
-		if (m_onWebViewFirstInitialized)
+		if (!m_initialUri.empty())
 		{
-			m_onWebViewFirstInitialized();
-			m_onWebViewFirstInitialized = nullptr;
+			Navigate(m_initialUri.c_str());
 		}
+
+		////move to NavigationCompleted
+		//if (m_onWebViewFirstInitialized)
+		//{
+		//	m_onWebViewFirstInitialized();
+		//	m_onWebViewFirstInitialized = nullptr;
+		//}
 
 		return S_OK;
 	}).Get());
 	
 	if (!SUCCEEDED(hr))
 	{
-		OutputDebugString(L"CreateCoreWebView2Host  failed\n");
+		OutputDebugStringW(L"CreateCoreWebView2Host  failed\n");
 		return false;
 	}
 
@@ -479,7 +519,7 @@ LRESULT CALLBACK BrowserWindow::WndProcStatic(HWND hWnd, UINT message, WPARAM wP
 	}
 	else
 	{
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		return ::DefWindowProc(hWnd, message, wParam, lParam);
 	}
 }
 
@@ -518,8 +558,8 @@ LRESULT CALLBACK BrowserWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 	case WM_PAINT:
 	{
 		PAINTSTRUCT ps;
-		HDC hdc = BeginPaint(hWnd, &ps);
-		EndPaint(hWnd, &ps);
+		HDC hdc = ::BeginPaint(hWnd, &ps);
+		::EndPaint(hWnd, &ps);
 	}
 	break;
 	case WM_APP:
@@ -555,7 +595,7 @@ LRESULT CALLBACK BrowserWindow::WndProc(HWND hWnd, UINT message, WPARAM wParam, 
 	//break;
 	default:
 	{
-		return DefWindowProc(hWnd, message, wParam, lParam);
+		return ::DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	break;
 	}
@@ -576,16 +616,16 @@ void BrowserWindow::CheckFailure(HRESULT hr, LPCWSTR errorMessage)
 			message = std::wstring(errorMessage);
 		}
 
-		MessageBoxW(nullptr, message.c_str(), nullptr, MB_OK);
+		::MessageBoxW(nullptr, message.c_str(), nullptr, MB_OK);
 	}
 }
 
 std::wstring BrowserWindow::GetAppDataDirectory()
 {
-	std::wstring s_title = _T("WebView2Browser"); //pegar depois do aplication
-	TCHAR path[MAX_PATH];
+	std::wstring s_title = L"WebView2Browser"; //pegar depois do aplication
+	WCHAR path[MAX_PATH];
 	std::wstring dataDirectory;
-	HRESULT hr = SHGetFolderPath(nullptr, CSIDL_APPDATA, NULL, 0, path);
+	HRESULT hr = SHGetFolderPathW(nullptr, CSIDL_APPDATA, NULL, 0, path);
 	if (SUCCEEDED(hr))
 	{
 		dataDirectory = std::wstring(path);

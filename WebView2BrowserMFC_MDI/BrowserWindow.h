@@ -1,7 +1,9 @@
 #pragma once
 #include "framework.h"
 
-class BrowserWindow
+
+//win32 native!!!
+class BrowserWindow 
 {
 	long m_Id;
 	HINSTANCE m_hInst;  // Current app instance
@@ -22,6 +24,7 @@ class BrowserWindow
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 protected:
+	//DECLARE_MESSAGE_MAP()
 	static WCHAR s_windowClass[MAX_LOADSTRING];  // The window class name	
 
 	// The events we register on the event source
@@ -40,14 +43,16 @@ protected:
 	Microsoft::WRL::ComPtr<ICoreWebView2DevToolsProtocolEventReceivedEventHandler> m_devToolsLogBroker;	
 	
 	HRESULT SetEventsAndBrokers();
+	//Microsoft::WRL::Wrappers::RoInitializeWrapper initialize;
+	Microsoft::WRL::Wrappers::Event NavigationCompletedEvent;
 
-public:
+public:	
+
 	static wil::com_ptr<ICoreWebView2Environment> m_webViewEnvironment;	
 	static BOOL InitInstance(HINSTANCE hInstance);
 	
 	BrowserWindow(HINSTANCE hInstance, HWND parentHWnd, std::wstring initialUri = L"https://www.bing.com/", std::function<void()> webviewCreatedCallback = nullptr);
-	~BrowserWindow();
-	static BOOL LaunchWindow(_In_ HINSTANCE hInstance, _In_ int nCmdShow);
+	~BrowserWindow();	
 	void RunAsync(std::function<void(void)> callback);
 
 	void Resize(RECT bounds = RECT());
@@ -66,5 +71,45 @@ public:
 	static std::wstring GetAppDataDirectory();
 	static std::wstring GetFullPathFor(LPCWSTR relativePath);
 	static std::wstring GetFilePathAsURI(std::wstring fullPath);
+
+
+	//BOOL ShowWindow(int nCmdShow)
+	//{
+	//	BOOL result = FALSE;
+	//	if (m_hWnd) {
+	//		if (m_host) {
+	//			if (nCmdShow == SW_HIDE)
+	//			{
+	//				m_host->put_IsVisible(FALSE);
+	//			}
+	//			else
+	//			{
+	//				m_host->put_IsVisible(TRUE);
+	//				nCmdShow = SW_SHOWMAXIMIZED;
+	//			}
+	//		}
+	//		result = ::ShowWindow(m_hWnd, nCmdShow);
+	//		//ShowWindow(SW_SHOWMAXIMIZED);
+	//		UpdateWindow(m_hWnd);
+	//	}
+	//	return result;
+	//};
+
+	//BOOL MoveWindow(RECT bounds)
+	//{
+	//	BOOL result = FALSE;
+	//	if (m_hWnd) {
+	//		if (m_host) {
+	//			m_host->put_IsVisible(TRUE);
+	//		}
+	//		auto x = bounds.left;
+	//		auto y = bounds.top;
+	//		auto width = bounds.right - bounds.left;
+	//		auto height = bounds.bottom - bounds.top;
+	//		result = ::MoveWindow(m_hWnd, x, y, width, height, TRUE);
+	//		//ShowWindow(SW_SHOWMAXIMIZED);			
+	//	}
+	//	return result;
+	//};
 };
 

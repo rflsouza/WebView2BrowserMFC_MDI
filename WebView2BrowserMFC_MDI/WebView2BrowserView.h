@@ -4,11 +4,15 @@
 
 #pragma once
 #include "BrowserWindow.h"
+#include "BrowserWindowEdge.h"
 
 class CWebView2BrowserView : public CFormView
 {	
 	long m_Id;
+	// browser with win32 native
 	std::unique_ptr<BrowserWindow> browser;
+	//browser with CWnd MFC Class
+	std::unique_ptr<BrowserWindowEdge> browserEdge;
 
 public: // create from serialization only
 	CWebView2BrowserView() noexcept;
@@ -53,6 +57,8 @@ public:
 	CStatic m_Label_View;
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+//	afx_msg void OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized);
+	virtual void OnActivateView(BOOL bActivate, CView* pActivateView, CView* pDeactiveView);
 };
 
 #ifndef _DEBUG  // debug version in WebView2BrowserView.cpp

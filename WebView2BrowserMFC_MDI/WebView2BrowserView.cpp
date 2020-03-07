@@ -26,6 +26,7 @@ BEGIN_MESSAGE_MAP(CWebView2BrowserView, CFormView)
 	ON_WM_CONTEXTMENU()
 	ON_WM_RBUTTONUP()
 	ON_WM_SIZE()
+//	ON_WM_ACTIVATE()
 END_MESSAGE_MAP()
 
 // CWebView2BrowserView construction/destruction
@@ -71,102 +72,187 @@ void CWebView2BrowserView::OnInitialUpdate()
 	//std::condition_variable condVar;
 	//std::unique_lock<std::mutex> lck(mutex_);	
 	//Microsoft::WRL::Wrappers::Event startupBrowserCompleted(CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, WRITE_OWNER | EVENT_ALL_ACCESS));
+	//RoInitializeWrapper initialize(RO_INIT_MULTITHREADED);		
 
-	browser = std::make_unique<BrowserWindow>(theApp.m_hInstance, GetSafeHwnd(),
-		BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\default.htm")),
-		[&] {		
-		if (browser) {
-			//browser->Navigate(L"https://www.uol.com.br");
-			//browser->Navigate(BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\default.htm")));
-			//browser->AddInitializeScript(L"alert('oi');");
+	bool useBrowserClassMFC = true;
+	if (useBrowserClassMFC)
+	{
+		browserEdge = std::make_unique<BrowserWindowEdge>();
+		CRect rect;
+		GetClientRect(rect);
+		if (!browserEdge->Create(NULL, L"BrowserWindowEdge", WS_CHILD | WS_VISIBLE, rect, this, 0)) {
+			TRACE(L"ERROR to create window BrowserWindowEdge %ld", GetLastError());
+		}
 
-			std::wstring getTitleScript(
-				// Look for a title tag
-				L"(() => {"
-				L"    const titleTag = document.getElementsByTagName('title')[0];"
-				L"    if (titleTag) {"
-				L"        return titleTag.innerHTML;"
-				L"    }"
-				// No title tag, look for the file name
-				L"    pathname = window.location.pathname;"
-				L"    var filename = pathname.split('/').pop();"
-				L"    if (filename) {"
-				L"        return filename;"
-				L"    }"
-				// No file name, look for the hostname
-				L"    const hostname =  window.location.hostname;"
-				L"    if (hostname) {"
-				L"        return hostname;"
-				L"    }"
-				// Fallback: let the UI use a generic title
-				L"    return '';"
-				L"})();"
-			);
-			
-			BrowserWindow::CheckFailure(browser->InjectScript(getTitleScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-				[this](HRESULT error, PCWSTR result) -> HRESULT
-			{
-				RETURN_IF_FAILED(error);
+		if (true) // use bing, to show using 2 view in switch menu !!!! 
+		{
+			std::wstring url = _T("https://www.bing.com/search?q=teste+") + std::to_wstring(m_Id) + _T("+") + std::to_wstring((long)GetTickCount());
+			browserEdge->Init(url.c_str());
+		}
+		else // use internal
+		browserEdge->Init(BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\default.htm")),
+			[&] {
+			if (browserEdge) {
 
-				web::json::value jsonObj = web::json::value::parse(result);
-				
-				TRACE("\r\nExecuteScriptCompleted Result: %S\r\n", result);
-				return S_OK;
-			})), L"Can't update title.");
-
-
-			//web::json::value jsonObj = web::json::value::parse(L"{\"SetColor\":\"blue\"}");									
-			//browser->PostJson(jsonObj);
-
-			web::json::value jsonObj = web::json::value::parse(L"{}");
-			jsonObj[L"message"] = web::json::value(2);
-			jsonObj[L"args"] = web::json::value::parse(L"{}");
-			jsonObj[L"args"][L"interaction"] = web::json::value::parse(L"{}");
-			jsonObj[L"args"][L"interaction"][L"id"] = web::json::value::number(1);
-			jsonObj[L"args"][L"interaction"][L"string"] = web::json::value::string(L"ação é agora");
-
-			BrowserWindow::CheckFailure(browser->PostJson(jsonObj),L"Can't send Init.");
-			
-			std::wstring initializationScript(
+				std::wstring getTitleScript(
 					// Look for a title tag
-					//L"(() => {"
-					L"    let titleTag = 'teste Rafael';"
-					L"    initialization(titleTag);"	
-					L"    return 'OK';"
-					//L"})();"
+					L"(() => {"
+					L"    const titleTag = document.getElementsByTagName('title')[0];"
+					L"    if (titleTag) {"
+					L"	      console.log('titleTag', titleTag);"
+					L"        return titleTag.innerHTML;"
+					L"    }"
+					// No title tag, look for the file name
+					L"    pathname = window.location.pathname;"
+					L"    var filename = pathname.split('/').pop();"
+					L"    if (filename) {"
+					L"	      console.log('filename', filename);"
+					L"        return filename;"
+					L"    }"
+					// No file name, look for the hostname
+					L"    const hostname =  window.location.hostname;"
+					L"    if (hostname) {"
+					L"	      console.log('hostname', hostname);"
+					L"        return hostname;"
+					L"    }"
+					// Fallback: let the UI use a generic title
+					L"    return '';"
+					L"})();"
 				);
 
-			BrowserWindow::CheckFailure(browser->InjectScript(initializationScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
-				[this](HRESULT error, PCWSTR result) -> HRESULT
-			{
-				RETURN_IF_FAILED(error);
+				BrowserWindow::CheckFailure(browserEdge->InjectScript(getTitleScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+					[this](HRESULT error, PCWSTR result) -> HRESULT
+				{
+					RETURN_IF_FAILED(error);
 
-				web::json::value jsonObj = web::json::value::parse(result);
+					web::json::value jsonObj = web::json::value::parse(result);
 
-				TRACE("\r\nExecuteScriptCompleted initializationScript Result: %S\r\n", result);
-				return S_OK;
-			})), L"Can't update title.");
+					TRACE("\r\nExecuteScriptCompleted getTitleScript Result: %S\r\n", result);
+					return S_OK;
+				})), L"Can't update title.");
+
+				web::json::value jsonObjSetColor = web::json::value::parse(L"{\"SetColor\":\"blue\"}");
+				browserEdge->PostJson(jsonObjSetColor);
+
+				web::json::value jsonObj = web::json::value::parse(L"{}");
+				jsonObj[L"message"] = web::json::value(1);
+				jsonObj[L"args"] = web::json::value::parse(L"{}");
+				jsonObj[L"args"][L"interaction"] = web::json::value::parse(L"{}");
+				jsonObj[L"args"][L"interaction"][L"id"] = web::json::value::number(1);
+				jsonObj[L"args"][L"interaction"][L"string"] = web::json::value::string(L"ação é agora");
+
+				BrowserWindow::CheckFailure(browserEdge->PostJson(jsonObj), L"Can't send Init.");
+
+				std::wstring initializationScript(
+					// Look for a title tag
+					L"(() => {"
+					L"    window.initialization('teste Rafael');"
+					L"    return 'OK';"
+					L"})();"
+				);
+
+				BrowserWindow::CheckFailure(browserEdge->InjectScript(initializationScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+					[this](HRESULT error, PCWSTR result) -> HRESULT
+				{
+					RETURN_IF_FAILED(error);
+
+					web::json::value jsonObj = web::json::value::parse(result);
+
+					TRACE("\r\nExecuteScriptCompleted initializationScript Result: %S\r\n", result);
+					return S_OK;
+				})), L"Can't update title.");
+
+			}
+
+
+			// Set the completion event and return.
+			//condVar.notify_one();
+			//SetEvent(startupBrowserCompleted.Get());
+		});
+	}
+	else
+	{
+		//browser with win32 native
+		browser = std::make_unique<BrowserWindow>(theApp.m_hInstance, GetSafeHwnd(),
+			BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\default.htm")),
+			//BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\WebMessage.html")),
+			[&] {		
+			if (browser) {			
+				std::wstring getTitleScript(
+					// Look for a title tag
+					L"(() => {"
+					L"    const titleTag = document.getElementsByTagName('title')[0];"
+					L"    if (titleTag) {"
+					L"	      console.log('titleTag', titleTag);"
+					L"        return titleTag.innerHTML;"
+					L"    }"
+					// No title tag, look for the file name
+					L"    pathname = window.location.pathname;"
+					L"    var filename = pathname.split('/').pop();"
+					L"    if (filename) {"
+					L"	      console.log('filename', filename);"
+					L"        return filename;"
+					L"    }"
+					// No file name, look for the hostname
+					L"    const hostname =  window.location.hostname;"
+					L"    if (hostname) {"
+					L"	      console.log('hostname', hostname);"
+					L"        return hostname;"
+					L"    }"
+					// Fallback: let the UI use a generic title
+					L"    return '';"
+					L"})();"
+				);
 			
-		}
+				BrowserWindow::CheckFailure(browser->InjectScript(getTitleScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+					[this](HRESULT error, PCWSTR result) -> HRESULT
+				{
+					RETURN_IF_FAILED(error);
+					web::json::value jsonObj = web::json::value::parse(result);
+				
+					TRACE("\r\nExecuteScriptCompleted getTitleScript Result: %S\r\n", result);
+					return S_OK;
+				})), L"Can't update title.");
+				web::json::value jsonObjSetColor = web::json::value::parse(L"{\"SetColor\":\"blue\"}");									
+				browser->PostJson(jsonObjSetColor);
+				web::json::value jsonObj = web::json::value::parse(L"{}");
+				jsonObj[L"message"] = web::json::value(1);
+				jsonObj[L"args"] = web::json::value::parse(L"{}");
+				jsonObj[L"args"][L"interaction"] = web::json::value::parse(L"{}");
+				jsonObj[L"args"][L"interaction"][L"id"] = web::json::value::number(1);
+				jsonObj[L"args"][L"interaction"][L"string"] = web::json::value::string(L"ação é agora");
+				BrowserWindow::CheckFailure(browser->PostJson(jsonObj),L"Can't send Init.");
+			
+				std::wstring initializationScript(
+						// Look for a title tag
+						L"(() => {"					
+						L"    window.initialization('teste Rafael');"	
+						L"    return 'OK';"
+						L"})();"
+					);
+				BrowserWindow::CheckFailure(browser->InjectScript(initializationScript.c_str(), Microsoft::WRL::Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+					[this](HRESULT error, PCWSTR result) -> HRESULT
+				{
+					RETURN_IF_FAILED(error);
+					web::json::value jsonObj = web::json::value::parse(result);
+					TRACE("\r\nExecuteScriptCompleted initializationScript Result: %S\r\n", result);
+					return S_OK;
+				})), L"Can't update title.");
+			
+			}
 		
 		
-		// Set the completion event and return.
-		//condVar.notify_one();
-		//SetEvent(startupBrowserCompleted.Get());
-	});
+			// Set the completion event and return.
+			//condVar.notify_one();
+			//SetEvent(startupBrowserCompleted.Get());
+		});
+	}	
 		
 	//std::cout << "Waiting " << std::endl;
 	//condVar.wait(lck);
 	// Wait for the timer to complete.
 	//WaitForSingleObjectEx(startupBrowserCompleted.Get(), INFINITE, FALSE);
 	//std::cout << "Running " << std::endl;
-
-	//std::async(std::launch::async,
-	//	[this] {
-	//	std::this_thread::sleep_for(std::chrono::seconds(10));
-	//	std::wstring url = BrowserWindow::GetFilePathAsURI(BrowserWindow::GetFullPathFor(L"htmls\\WebMessage.html"));
-	//	browser->Navigate(url);
-	//});	
 }
 
 void CWebView2BrowserView::OnRButtonUp(UINT /* nFlags */, CPoint point)
@@ -222,6 +308,19 @@ void CWebView2BrowserView::OnSize(UINT nType, int cx, int cy)
 
 		browser->Resize();
 	}
+
+	if (browserEdge) {
+		CRect rect; // Gets resized later.		
+		GetClientRect(&rect);
+		//rect.top = 2;
+		//rect.left = 2;
+		//rect.right = cx - 2;
+		//rect.bottom = 25;
+		browserEdge->MoveWindow(rect, TRUE);
+		
+		//browserEdge->Resize(rect);
+	}
+
 		//GetClientRect(((CFrameWnd *)m_pMainWnd)->m_hWnd, &rect);
 	//TRACE("%s Type:%ld x:%ld y:%ld\r\n", __FUNCTION__, nType, cx, cy);
 }
@@ -231,4 +330,28 @@ LRESULT CWebView2BrowserView::WindowProc(UINT message, WPARAM wParam, LPARAM lPa
 {	
 	// TODO: Add your specialized code here and/or call the base class
 	return CFormView::WindowProc(message, wParam, lParam);
+}
+
+
+//void CWebView2BrowserView::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
+//{
+//	CFormView::OnActivate(nState, pWndOther, bMinimized);
+//
+//	// TODO: Add your message handler code here
+//}
+
+
+void CWebView2BrowserView::OnActivateView(BOOL bActivate, CView* pActivateView, CView* pDeactiveView)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	//if (bActivate) 
+	//{
+	//	browserEdge->ShowWindow(SW_SHOW);
+	//} 
+	//else
+	//{
+	//	browserEdge->ShowWindow(SW_HIDE);
+	//}
+
+	CFormView::OnActivateView(bActivate, pActivateView, pDeactiveView);
 }

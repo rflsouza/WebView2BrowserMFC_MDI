@@ -1,4 +1,6 @@
 const messageHandler = event => {
+    console.log('messageHandler event', event);
+
     var message = event.data.message;
     var args = event.data.args;
 
@@ -6,19 +8,18 @@ const messageHandler = event => {
         case commands.MG_INIT:
             if (args) {
                 console.log("MG_INIT");
-                alert(`Received unexpected message: ${JSON.stringify(event.args)}`);
+                console.log(`Received MG_INIT message: ${JSON.stringify(args)}`);
             }
             break;
         case commands.MG_COLOR:
             if (args) {
-                console.log("MG_NAV_COMPLETED");
+                console.log("MG_COLOR");
                 document.getElementById("colorable").style.color = "Blue";
             }
             break;       
         default:
             console.log(`Received unexpected message: ${JSON.stringify(event.data)}`);
-    }
-    console.log('event', event);
+    }    
     window.xgen = event;
 };
 
