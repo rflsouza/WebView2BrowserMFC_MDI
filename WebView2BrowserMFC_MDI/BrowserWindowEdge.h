@@ -45,6 +45,9 @@ public:
 
 	static wil::com_ptr<ICoreWebView2Environment> m_webViewEnvironment;
 	static BOOL InitInstance(HINSTANCE hInstance);
+	// https://stackoverflow.com/questions/4804298/how-to-convert-wstring-into-string
+	static std::wstring s2ws(const std::string& str);
+	static std::string ws2s(const std::wstring& wstr);
 
 	BrowserWindowEdge();
 	~BrowserWindowEdge();

@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "BrowserWindowEdge.h"
+#include <locale>
+#include <codecvt>
 
 using namespace Microsoft::WRL;
 
@@ -18,6 +20,19 @@ bool BrowserWindowEdge::InitWebView()
 {
 	if (m_webViewEnvironment == nullptr)
 		return false;
+
+	if (m_host && m_webView)
+	{
+		// Resize WebView to fit the bounds of the parent window
+		m_host->put_IsVisible(TRUE);
+		Resize();
+
+		if (!m_initialUri.empty())
+		{
+			Navigate(m_initialUri.c_str());
+		}
+		return true;
+	}
 
 	// Create a CoreWebView2Host and get the associated CoreWebView2 whose parent is the main window hWnd
 	HRESULT hr = m_webViewEnvironment->CreateCoreWebView2Host(m_hWnd, Callback<ICoreWebView2CreateCoreWebView2HostCompletedHandler>(
@@ -352,6 +367,21 @@ BOOL BrowserWindowEdge::InitInstance(HINSTANCE hInstance)
 	return TRUE;
 }
 
+std::wstring BrowserWindowEdge::s2ws(const std::string & str)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.from_bytes(str);
+}
+
+std::string BrowserWindowEdge::ws2s(const std::wstring & wstr)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.to_bytes(wstr);
+}
 
 BrowserWindowEdge::BrowserWindowEdge() : 
 	NavigationCompletedEvent(CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, WRITE_OWNER | EVENT_ALL_ACCESS))
