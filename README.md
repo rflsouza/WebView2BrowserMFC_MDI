@@ -21,4 +21,6 @@ After the exchange, it will show view 2 with browser 2:
 
 if you create a new document, you will see that the browser will delete the current ones and will create new ones, maintaining the views.
 
+In the example we have 2 classes to show the use of BrowserWindow using win32 and the class BrowserWindowEdge using CWnd of MFC
+
 
