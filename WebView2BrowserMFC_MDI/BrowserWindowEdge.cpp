@@ -284,7 +284,7 @@ void BrowserWindowEdge::OnShowWindow(BOOL bShow, UINT nStatus)
 
 	auto foreground = GetForegroundWindow();
 	auto me = GetActiveWindow();
-	TRACE("\r\n[%p] BrowserWindowEdge::OnShowWindow Show:%d  GetForegroundWindow:%p GetActiveWindow:%p\r\n", this, bShow, foreground, me);
+	//TRACE("\r\n[%p] BrowserWindowEdge::OnShowWindow Show:%d  GetForegroundWindow:%p GetActiveWindow:%p\r\n", this, bShow, foreground, me);
 	
 	if (bShow == FALSE)
 	{
@@ -368,6 +368,8 @@ BrowserWindowEdge::~BrowserWindowEdge()
 		m_host = nullptr;
 		m_webView = nullptr;
 	}
+
+	DestroyWindow();
 }
 
 void BrowserWindowEdge::RunAsync(std::function<void()> callback)
