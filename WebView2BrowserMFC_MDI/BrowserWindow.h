@@ -1,6 +1,8 @@
 #pragma once
-#include "framework.h"
+#ifndef BROWSER_WINDOW_H
+#define BROWSER_WINDOW_H
 
+#include "framework.h"
 
 //win32 native!!!
 class BrowserWindow 
@@ -113,3 +115,4 @@ public:
 	//};
 };
 
+#endif // BROWSER_WINDOW_H

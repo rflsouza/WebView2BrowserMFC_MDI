@@ -1,4 +1,7 @@
 #pragma once
+#ifndef BROWSER_WINDOW_EDGE_H
+#define BROWSER_WINDOW_EDGE_H
+
 #include <afxwin.h>
 #include "framework.h"
 
@@ -65,4 +68,6 @@ public:
 	static std::wstring GetFullPathFor(LPCWSTR relativePath);
 	static std::wstring GetFilePathAsURI(std::wstring fullPath);	
 };
+
+#endif // BROWSER_WINDOW_EDGE_H
 
