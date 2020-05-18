@@ -21,10 +21,10 @@ bool BrowserWindowEdge::InitWebView()
 	if (m_webViewEnvironment == nullptr)
 		return false;
 
-	if (m_host && m_webView)
+	if (m_webViewController && m_webView)
 	{
 		// Resize WebView to fit the bounds of the parent window
-		m_host->put_IsVisible(TRUE);
+		m_webViewController->put_IsVisible(TRUE);
 		Resize();
 
 		if (!m_initialUri.empty())
@@ -33,10 +33,9 @@ bool BrowserWindowEdge::InitWebView()
 		}
 		return true;
 	}
-
-	// Create a CoreWebView2Host and get the associated CoreWebView2 whose parent is the main window hWnd
-	HRESULT hr = m_webViewEnvironment->CreateCoreWebView2Host(m_hWnd, Callback<ICoreWebView2CreateCoreWebView2HostCompletedHandler>(
-		[&](HRESULT result, ICoreWebView2Host* host) -> HRESULT {
+	
+	HRESULT hr = m_webViewEnvironment->CreateCoreWebView2Controller(m_hWnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+		[&](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
 
 		if (!SUCCEEDED(result))
 		{
@@ -44,9 +43,9 @@ bool BrowserWindowEdge::InitWebView()
 			return result;
 		}
 
-		if (host != nullptr) {
-			m_host = host;
-			CheckFailure(m_host->get_CoreWebView2(&m_webView), L"");
+		if (controller != nullptr) {
+			m_webViewController = controller;
+			CheckFailure(m_webViewController->get_CoreWebView2(&m_webView), L"");
 		}
 
 		// Add a few settings for the webview
@@ -58,7 +57,7 @@ bool BrowserWindowEdge::InitWebView()
 		Settings->put_IsWebMessageEnabled(TRUE);
 
 		// Resize WebView to fit the bounds of the parent window
-		m_host->put_IsVisible(TRUE);
+		m_webViewController->put_IsVisible(TRUE);
 		Resize();		
 
 		// Register events	
@@ -74,7 +73,7 @@ bool BrowserWindowEdge::InitWebView()
 
 	if (!SUCCEEDED(hr))
 	{
-		OutputDebugStringW(L"CreateCoreWebView2Host  failed\n");
+		OutputDebugStringW(L"CreateCoreWebView2Controller  failed\n");
 		return false;
 	}
 
@@ -207,9 +206,9 @@ HRESULT BrowserWindowEdge::SetEventsAndBrokers()
 		[this](ICoreWebView2* sender,
 			ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT
 	{
-		CORE_WEBVIEW2_PROCESS_FAILED_KIND failureType;
+		COREWEBVIEW2_PROCESS_FAILED_KIND failureType;
 		RETURN_IF_FAILED(args->get_ProcessFailedKind(&failureType));
-		if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED)
+		if (failureType == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED)
 		{
 			int button = ::MessageBoxW(
 				m_hWnd,
@@ -221,7 +220,7 @@ HRESULT BrowserWindowEdge::SetEventsAndBrokers()
 				//m_appWindow->ReinitializeWebView();
 			}
 		}
-		else if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
+		else if (failureType == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
 		{
 			int button = ::MessageBoxW(
 				m_hWnd,
@@ -282,13 +281,13 @@ BOOL BrowserWindowEdge::ShowWindow(int nCmdShow)
 	//TRACE("\r\n[%p] BrowserWindowEdge::ShowWindow Show:%d  GetForegroundWindow:%p GetActiveWindow:%p\r\n", this, nCmdShow, GetForegroundWindow(), GetActiveWindow());
 	//if (nCmdShow == SW_HIDE)
 	//{
-	//	if (m_host && GetForegroundWindow() != GetActiveWindow())
-	//		m_host->put_IsVisible(FALSE);
+	//	if (m_webViewController && GetForegroundWindow() != GetActiveWindow())
+	//		m_webViewController->put_IsVisible(FALSE);
 	//}
 	//else
 	//{
-	//	if (m_host)
-	//		m_host->put_IsVisible(TRUE);
+	//	if (m_webViewController)
+	//		m_webViewController->put_IsVisible(TRUE);
 	//}		
 
 	return CWnd::ShowWindow(nCmdShow);
@@ -303,14 +302,14 @@ void BrowserWindowEdge::OnShowWindow(BOOL bShow, UINT nStatus)
 	
 	if (bShow == FALSE)
 	{
-		if (m_host)
+		if (m_webViewController)
 			if (foreground == me)
-				m_host->put_IsVisible(FALSE);
+				m_webViewController->put_IsVisible(FALSE);
 	}
 	else
 	{
-		if (m_host)
-			m_host->put_IsVisible(TRUE);
+		if (m_webViewController)
+			m_webViewController->put_IsVisible(TRUE);
 	}
 
 }
@@ -326,16 +325,27 @@ afx_msg LRESULT BrowserWindowEdge::OnRunAsync(WPARAM wParam, LPARAM lParam)
 
 BOOL BrowserWindowEdge::InitInstance(HINSTANCE hInstance)
 {	
+	LPCWSTR subFolder = nullptr;
+
+	// Get directory for user data. This will be kept separated from the
+   // directory for the browser UI data.
 	std::wstring userDataDirectory = GetAppDataDirectory();
 	userDataDirectory.append(L"\\User Data");
 
-	std::wstring additionalBrowserArguments;
-	//additionalBrowserArguments = L"--auto-open-devtools-for-tabs";
+	auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+	std::wstring m_language;
+	if (!m_language.empty())
+		options->put_Language(m_language.c_str());
 
-	HRESULT hr = CreateCoreWebView2EnvironmentWithDetails(
-		nullptr,
+	std::wstring additionalBrowserArguments;
+	//additionalBrowserArguments = L"--auto-open-devtools-for-tabs";	
+	if (!additionalBrowserArguments.empty())
+		options->put_AdditionalBrowserArguments(additionalBrowserArguments.c_str());
+
+	HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
+		subFolder,
 		userDataDirectory.c_str(),
-		additionalBrowserArguments.c_str(),
+		options.Get(),
 		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
 			[](HRESULT result, ICoreWebView2Environment* env) -> HRESULT
 	{
@@ -392,10 +402,10 @@ BrowserWindowEdge::BrowserWindowEdge() :
 BrowserWindowEdge::~BrowserWindowEdge()
 {
 	TRACE("\r\n\t--- [%ld] %s - %p \r\n", GetCurrentThreadId(), __FUNCTION__, this);
-	if (m_host)
+	if (m_webViewController)
 	{
-		m_host->Close();
-		m_host = nullptr;
+		m_webViewController->Close();
+		m_webViewController = nullptr;
 		m_webView = nullptr;
 	}
 
@@ -424,9 +434,9 @@ void BrowserWindowEdge::Resize(RECT bounds)
 		GetClientRect(&bounds);
 	}
 		
-	if (m_host) {		
-		m_host->put_Bounds(bounds);				
-		//m_host->get_IsVisible(&isVisible);
+	if (m_webViewController) {
+		m_webViewController->put_Bounds(bounds);
+		//m_webViewController->get_IsVisible(&isVisible);
 	}	
 }
 

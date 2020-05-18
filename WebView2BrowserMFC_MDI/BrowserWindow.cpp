@@ -135,9 +135,9 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 		[this](ICoreWebView2* sender,
 			ICoreWebView2ProcessFailedEventArgs* args) -> HRESULT
 	{
-		CORE_WEBVIEW2_PROCESS_FAILED_KIND failureType;
+		COREWEBVIEW2_PROCESS_FAILED_KIND failureType;
 		RETURN_IF_FAILED(args->get_ProcessFailedKind(&failureType));
-		if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED)
+		if (failureType == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED)
 		{
 			int button = ::MessageBoxW(
 				m_hWnd,
@@ -149,7 +149,7 @@ HRESULT BrowserWindow::SetEventsAndBrokers()
 				//m_appWindow->ReinitializeWebView();
 			}
 		}
-		else if (failureType == CORE_WEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
+		else if (failureType == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE)
 		{
 			int button = ::MessageBoxW(
 				m_hWnd,
@@ -204,18 +204,27 @@ BOOL BrowserWindow::InitInstance(HINSTANCE hInstance)
 		return false;
 	}
 
+	LPCWSTR subFolder = nullptr;
+
 	// Get directory for user data. This will be kept separated from the
    // directory for the browser UI data.
 	std::wstring userDataDirectory = GetAppDataDirectory();
 	userDataDirectory.append(L"\\User Data");
 
-	std::wstring additionalBrowserArguments; 
-	//additionalBrowserArguments = L"--auto-open-devtools-for-tabs";
+	auto options = Microsoft::WRL::Make<CoreWebView2EnvironmentOptions>();
+	std::wstring m_language;
+	if (!m_language.empty())
+		options->put_Language(m_language.c_str());	
 
-	HRESULT hr = CreateCoreWebView2EnvironmentWithDetails(
-		nullptr, 
+	std::wstring additionalBrowserArguments; 
+	//additionalBrowserArguments = L"--auto-open-devtools-for-tabs";	
+	if (!additionalBrowserArguments.empty())
+	options->put_AdditionalBrowserArguments(additionalBrowserArguments.c_str());
+
+	HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
+		subFolder,
 		userDataDirectory.c_str(),
-		additionalBrowserArguments.c_str(), 
+		options.Get(),
 		Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
 			[](HRESULT result, ICoreWebView2Environment* env) -> HRESULT
 	{
@@ -283,10 +292,10 @@ BrowserWindow::BrowserWindow(HINSTANCE hInstance, HWND parentHWnd, std::wstring 
 BrowserWindow::~BrowserWindow()
 {
 	TRACE("\r\n\t--- [%ld] %s - %p id:%ld\r\n", GetCurrentThreadId(), __FUNCTION__, this, m_Id);	
-	if (m_host)
+	if (m_webViewController)
 	{
-		m_host->Close();
-		m_host = nullptr;
+		m_webViewController->Close();
+		m_webViewController = nullptr;
 		m_webView = nullptr;
 	}
 
@@ -304,14 +313,14 @@ void BrowserWindow::RunAsync(std::function<void()> callback)
 
 void BrowserWindow::Resize(RECT bounds)
 {
-	//if (m_hWnd != nullptr && m_host != nullptr)
+	//if (m_hWnd != nullptr && m_webViewController != nullptr)
 	//{
 	//	RECT bounds;
 	//	GetClientRect(m_hWnd, &bounds);
-	//	m_host->put_Bounds(bounds);
-	//	m_host->put_IsVisible(TRUE);
+	//	m_webViewController->put_Bounds(bounds);
+	//	m_webViewController->put_IsVisible(TRUE);
 	//}
-	if (m_parentHWnd != nullptr && m_host != nullptr)
+	if (m_parentHWnd != nullptr && m_webViewController != nullptr)
 	{		
 		if (bounds.bottom == 0 && bounds.top == 0, bounds.left == 0, bounds.right == 0) {
 			bounds.bottom += 10;
@@ -320,8 +329,8 @@ void BrowserWindow::Resize(RECT bounds)
 			bounds.right += 10;
 			::GetClientRect(m_parentHWnd, &bounds);
 		}		
-		m_host->put_Bounds(bounds);
-		m_host->put_IsVisible(TRUE);		
+		m_webViewController->put_Bounds(bounds);
+		m_webViewController->put_IsVisible(TRUE);
 
 		ShowWindow(m_hWnd, SW_SHOWMAXIMIZED);
 		UpdateWindow(m_hWnd);	
@@ -412,10 +421,9 @@ bool BrowserWindow::InitWebView()
 {
 	if (m_webViewEnvironment == nullptr)
 		return false;
-
-	// Create a CoreWebView2Host and get the associated CoreWebView2 whose parent is the main window hWnd
-	HRESULT hr = m_webViewEnvironment->CreateCoreWebView2Host(m_hWnd, Callback<ICoreWebView2CreateCoreWebView2HostCompletedHandler>(
-		[&](HRESULT result, ICoreWebView2Host* host) -> HRESULT {
+	
+	HRESULT hr = m_webViewEnvironment->CreateCoreWebView2Controller(m_hWnd, Callback<ICoreWebView2CreateCoreWebView2ControllerCompletedHandler>(
+		[&](HRESULT result, ICoreWebView2Controller* controller) -> HRESULT {
 
 		if (!SUCCEEDED(result))
 		{
@@ -423,9 +431,9 @@ bool BrowserWindow::InitWebView()
 			return result;
 		}
 
-		if (host != nullptr) {
-			m_host = host;			
-			CheckFailure(m_host->get_CoreWebView2(&m_webView), L"");
+		if (controller != nullptr) {
+			m_webViewController = controller;
+			CheckFailure(m_webViewController->get_CoreWebView2(&m_webView), L"");
 		}
 		
 		// Add a few settings for the webview
@@ -463,7 +471,7 @@ bool BrowserWindow::InitWebView()
 	
 	if (!SUCCEEDED(hr))
 	{
-		OutputDebugStringW(L"CreateCoreWebView2Host  failed\n");
+		OutputDebugStringW(L"CreateCoreWebView2Controller  failed\n");
 		return false;
 	}
 

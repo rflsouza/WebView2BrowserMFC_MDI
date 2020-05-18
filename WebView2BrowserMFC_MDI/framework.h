@@ -44,6 +44,7 @@ extern std::atomic<long> g_browsers;
 #include <wil/com.h>
 #include <cpprest/json.h>
 #include "WebView2.h"
+#include "WebView2EnvironmentOptions.h"
 #include "Resource.h"
 
 #ifdef _UNICODE

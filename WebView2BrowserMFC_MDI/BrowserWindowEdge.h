@@ -8,7 +8,7 @@
 class BrowserWindowEdge :
 	public CWnd
 {
-	wil::com_ptr<ICoreWebView2Host> m_host;
+	wil::com_ptr<ICoreWebView2Controller> m_webViewController;
 	wil::com_ptr<ICoreWebView2> m_webView;	
 
 	std::wstring m_initialUri;

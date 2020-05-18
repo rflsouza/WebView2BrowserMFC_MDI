@@ -14,10 +14,8 @@ class BrowserWindow
 	std::wstring m_initialUri;
 	std::function<void()> m_onWebViewFirstInitialized = nullptr;
 
-	// The following is state that belongs with the webview, and should
-	// be reinitialized along with it.  Everything here is undefined when
-	// m_webView is null.	
-	wil::com_ptr<ICoreWebView2Host> m_host;
+	// Pointer to WebViewController
+	wil::com_ptr<ICoreWebView2Controller> m_webViewController;
 	wil::com_ptr<ICoreWebView2> m_webView;
 
 	bool InitWebView();
@@ -79,14 +77,14 @@ public:
 	//{
 	//	BOOL result = FALSE;
 	//	if (m_hWnd) {
-	//		if (m_host) {
+	//		if (m_webViewController) {
 	//			if (nCmdShow == SW_HIDE)
 	//			{
-	//				m_host->put_IsVisible(FALSE);
+	//				m_webViewController->put_IsVisible(FALSE);
 	//			}
 	//			else
 	//			{
-	//				m_host->put_IsVisible(TRUE);
+	//				m_webViewController->put_IsVisible(TRUE);
 	//				nCmdShow = SW_SHOWMAXIMIZED;
 	//			}
 	//		}
@@ -101,8 +99,8 @@ public:
 	//{
 	//	BOOL result = FALSE;
 	//	if (m_hWnd) {
-	//		if (m_host) {
-	//			m_host->put_IsVisible(TRUE);
+	//		if (m_webViewController) {
+	//			m_webViewController->put_IsVisible(TRUE);
 	//		}
 	//		auto x = bounds.left;
 	//		auto y = bounds.top;
